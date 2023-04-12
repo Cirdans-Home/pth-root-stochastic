@@ -6,51 +6,58 @@ N = size(A,1);
 tol = eps(N);
 
 % Set default values
-if ~exist('maxiter', 'var') || isempty(maxit)
-    maxit = N^2;
+if ~exist('maxit', 'var') || isempty(maxit)
+    maxit = 1000;
 end
 if ~exist('checkperiod', 'var') || isempty(checkperiod)
-    checkperiod = 100;
+    checkperiod = round(N/10);
 end
 
 Ahat = diag(pi)*A;
 % Number of iteration
 iter = 0;
 % Initialize u and v
-u = ones(N,1); v = ones(N,1);
+u = ones(N,1); v = ones(N,1); e = v;
 while iter < maxit
     iter = iter + 1;
-    
+
+    % previous for safekeeping
+    u_prev = u;
+    v_prev = v;
+
     row = Ahat*v;
-    % Check gap condition only at checkperiod intervals.
-    % It saves computations for large-scale scenarios.
+
+    % update u and v
+    u = pi./(row);
+    v = pi./(Ahat'*u);
+
+    % Check if converged
     if mod(iter, checkperiod) == 0
-        gap = max(abs(row .* u - 1));
+        gap = abs(u'*row - 1);
         if isnan(gap)
             break;
         end
         if gap <= tol
-            break;
+            if norm(diag(u)*A*diag(v)*e-e,"inf") < tol && ...
+                    norm(pi'*diag(u)*A*diag(v)-pi',"inf") < tol
+                break;
+            end
         end
     end
-    % store old u and v in case of nasty breakdowns
-    uprev = u;
-    vprev = v;
-    % update u and v
-    u = pi./row;
-    v = pi./(Ahat'*u);
 
-    if any(isinf(v)) || any(isnan(v)) || any(isinf(u)) || any(isnan(u))
-        warning('FixedStochasticProjection:NanInfEncountered', ...
+    if any(isinf(u)) || any(isnan(u)) || any(isinf(v)) || any(isnan(v))
+        warning('DoublyStochasticProjection:NanInfEncountered', ...
             'Nan or Inf occured at iter %d. \n', iter);
-        u = uprev;
-        v = vprev;
+        u = u_prev;
+        v = v_prev;
         break;
     end
+
 
 end
 
 % The matrix we want is built from A as in the Theorem
-B = diag(v)*A*diag(u);
+B = diag(u)*A*diag(v);
+
 
 end

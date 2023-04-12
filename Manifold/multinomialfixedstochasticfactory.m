@@ -43,7 +43,7 @@ function M = multinomialfixedstochasticfactory(pi)
         % computing A*x (x is a given vector). 
         % Make sure that A is not created, and X is only 
         % passed with mylinearsolve and not A.
-        [zeta, flag, res, iter] = pcg(@mycompute, b, 1e-15, 100);
+        [zeta, flag, res, iter] = pcg(@mycompute, b, eps(n), 100);
         if flag > 0
             fprintf("Error with flag %d res is %e (%d iter)\n",...
                 flag,res,iter);
@@ -87,7 +87,8 @@ function M = multinomialfixedstochasticfactory(pi)
     % Pick a random point on the manifold
     M.rand = @random;
     function X = random()
-        X = genrand(pi);
+        X = abs(randn(n, n));
+        X = modifiedsinkhorn(X,pi,maxDSiters);
     end
 
     % Pick a random vector in the tangent space at X.
@@ -131,7 +132,7 @@ function M = multinomialfixedstochasticfactory(pi)
             t = 1.0;
         end
         Y = X.*exp(t*(eta./X));
-        Y = modifiedsinkhorn(Y,pi,maxDSiters);
+        Y = modifiedsinkhorn(Y,pi);
         Y = max(Y, eps);
     end
 

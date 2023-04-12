@@ -20,6 +20,10 @@ git clone git@github.com:Cirdans-Home/approximate-embedded-markov.git
 cd approximate-embedded-markov
 git submodule update --init --recursive
 ```
+## Contributors
+
+- F. Durastante [:link:](https://fdurastante.github.io/)
+- B. Meini [:link:](https://people.dm.unipi.it/meini/)
 
 ## License
 

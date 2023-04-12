@@ -8,6 +8,7 @@ catch
     fprintf("Loading MANOPT\n");
     here = pwd;
     cd ../manopt
+    addpath('auxiliaries')
     importmanopt;
     cd(here);
 end
