@@ -1,4 +1,12 @@
-%% MULTINOMIAL WITH GIVEN MARGINAL
+%% Checking the stationary distribution when optimizing with MANOPT
+% This example uses the Markov chain induced by a random walk on an
+% undirected graph. We compare the stationary vector of the original matrix
+% and the one we obtain for the Riemannian square root approximation on the
+% multinomial stochastic manifold.
+%
+% To produce the figures for the manuscript we use the matlab2tikz
+% function. It is put in a try/cat statement, so if you have not installed
+% it, you can run everything as is and not have the figures.
 
 clear; clc;
 
@@ -27,7 +35,7 @@ pi = pi./norm(pi,1);
 %% Building variety
 manifold = multinomialfactory(n,n); % These are column stochastic!
 %% Building the problem
-p = 3;
+p = 2;
 A = full(A);
 problem.M = manifold;
 problem.cost = @(x) 0.5*cnormsqfro(mpower(x,p).'-A);
@@ -84,4 +92,17 @@ try
 catch
     % Matlab's default
     print(gcf,'-dpdf','eigenfailure.pdf');
+end
+
+% Plot only the eigenvector
+figure(4)
+plot(1:n,pi,'X',1:n,pix,'o')
+xlim([1,n])
+xlabel('node')
+ylabel('Stationary Distribution')
+legend('Original Matrix','Approximate root')
+try
+    matlab2tikz('eigenvector.tikz')
+catch
+    warning("This output needs the matlab2tikz code.")
 end
