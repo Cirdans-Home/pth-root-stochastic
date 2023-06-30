@@ -13,6 +13,7 @@ n = size(A,1);
 e = ones(n,1);
 D = spdiags(A*e,0,n,n);
 A = D\A;
+
 I = speye(size(A));
 
 
@@ -33,13 +34,13 @@ for i=1:20
     % Upper bound
     ubound = max([1+norm(pi,"inf"),2*norm(pi,"inf")]);
     % Lower bound
-    [rstar,k] = max(min(A,[],1));
+    [rstar,k] = min(max(1-A,[],1));
     deltastar = min(deltavec((1:size(A,1)~=k)));
-    %if rstar + deltastar <= 1
-    %    lbound = min(pi);
-    %else
-    lbound = (deltastar+(1-sqrt(deltastar*(deltastar+4*rstar-2)+1)))/2;
-    %end
+    if rstar + deltastar < 1
+        lbound = deltastar*(1 - rstar/(1-deltastar));
+    else
+        lbound = (deltastar+(1-sqrt(deltastar*(deltastar+4*rstar-2)+1)))/2;
+    end
     % Eigenvalues
     evM = eig(full(M),'balance');
     evM(1) = 0;
@@ -82,12 +83,12 @@ M = [I, Dpi*A; A'*Dpi, delta];
 % Upper bound
 ubound = max([1+norm(pi,"inf"),2*norm(pi,"inf")]);
 % Lower bound
-[rstar,k] = max(min(A,[],1));
+[rstar,k] = min(max(1-A,[],1));
 deltastar = min(deltavec((1:size(A,1)~=k)));
-%if rstar + deltastar <= 1
-%    lbound = min(pi);
+%if rstar + deltastar < 1
+%    lbound = deltastar*(1 - rstar/(1-deltastar));
 %else
-lbound = (deltastar+(1-sqrt(deltastar*(deltastar+4*rstar-2)+1)))/2;
+    lbound = (deltastar+(1-sqrt(deltastar*(deltastar+4*rstar-2)+1)))/2;
 %end
 % Eigenvalues
 evM = eig(full(M),'balance');
