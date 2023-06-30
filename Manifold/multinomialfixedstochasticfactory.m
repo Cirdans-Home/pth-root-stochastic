@@ -1,4 +1,4 @@
-function M = multinomialfixedstochasticfactory(pi)
+function M = multinomialfixedstochasticfactory(pi,optionsolve)
 % Manifold of n-by-n row stochastic matrices with positive entries and
 % fixed left-hand stochastic eigenvector
 %
@@ -37,25 +37,98 @@ function M = multinomialfixedstochasticfactory(pi)
         % where A = [eye(n) X ; X' eye(n)];
         %
         % For large n use the pcg solver instead of \.
-        % [zeta, ~, ~, iter] = pcg(sparse(A), b, 1e-6, 100);
+        % [zeta, ~, ~, iter] = pcg(sparse(A), b, 1e-6, 2*n);
         %
         % Even faster is to create a function handle
         % computing A*x (x is a given vector). 
         % Make sure that A is not created, and X is only 
         % passed with mylinearsolve and not A.
-        [zeta, flag, res, iter] = pcg(@mycompute, b, eps(n), 100);
-        if flag > 0
-            fprintf("Error with flag %d res is %e (%d iter)\n",...
-                flag,res,iter);
+
+        switch upper(optionsolve.formulation)
+            case "BLOCK"
+                % We solve here the system in its 2 x 2 block formulation
+                switch upper(optionsolve.method)
+                    case "CG"
+                        [zeta, flag, res, iter,resvec] = ...
+                            pcg(@(x) mycompute(x,true), b, 1e-6, 2*n);
+                    case "LSQR"
+                        [zeta, flag, res, iter,resvec] = ...
+                            lsqr(@mycompute, b, 1e-6, 2*n);
+                    case "SVD"
+                        S1 = [eye(size(X)) diag(pi)*X;
+                            X.'*diag(pi) diag(X.'*(diag(pi)*pi))];
+                        zeta = pinv(S1)*b;
+                    otherwise
+                        error("Manopt:unknown_linear_solver")
+                end
+            case "SCHUR"
+                bschur = b(n+1:end,1) - X.'*diag(pi)*b(1:n,1);
+                % We solve here the system in its reduced formulation
+                switch upper(optionsolve.method)
+                    case "CG"
+                        [zetaschur, flag, res, iter,resvec] = ...
+                            pcg(@(x) mycompute_schur(x,true), bschur, ...
+                            1e-6, 2*n); 
+                    case "LSQR"
+                        [zetaschur, flag, res, iter,resvec] = ...
+                            lsqr(@mycompute_schur, bschur, ...
+                            1e-6, 2*n);
+                    case "SVD"
+                        S1schur = diag(X.'*(diag(pi)*pi)) - X.'*diag(pi.^2)*X;
+                        zetaschur = pinv(S1schur)*bschur;
+                    otherwise
+                        error("Manopt:unknown_linear_solver")
+                end
+                % reconstruct the whole vector
+                zeta = [b(1:n,1) - pi.*(X*zetaschur);...
+                    zetaschur];
+            otherwise
+                error("Manopt:unknown_linear_formulation")
+        end
+
+        if (flag > 0 || optionsolve.verbose)
+            fprintf("%s & %s & %d & %1.2e \\\\\n",optionsolve.formulation,...
+                optionsolve.method,iter,res);
+            if (optionsolve.plot)
+                if isempty(optionsolve.fighandle)
+                    optionsolve.fighandle = figure();
+                else 
+                    figure(optionsolve.fighandle);
+                    hold on
+                end
+                if optionsolve.correction
+                    correctionstring = '+ rank 1';
+                else 
+                    correctionstring = '';
+                end
+                semilogy(1:length(resvec),resvec,'LineWidth',2,'DisplayName',...
+                    sprintf('%s-%s %s',optionsolve.method, ...
+                    optionsolve.formulation,correctionstring))
+                hold off
+            end
         end
 
 
-        function Ax = mycompute(x)
+        function Ax = mycompute(x,flag)
+            % The matrix is symmetric, thus the flag is an empty
+            % placeholder for the LSQR request for the transposition
             xtop = x(1:n,1);
             xbottom = x(n+1:end,1);
             Axtop = xtop + diag(pi)*X*xbottom;
             Axbottom = X'*diag(pi)*xtop + diag(pi'*diag(pi)*X)*xbottom;
             Ax = [Axtop; Axbottom];
+            if optionsolve.correction
+                Ax = Ax + ((pi'*xtop - e'*xbottom)/(pi'*pi + n))*[pi;-e];
+            end
+        end
+
+        function Ax = mycompute_schur(x,flag)
+            % The matrix is symmetric, thus the flag is an empty
+            % placeholder for the LSQR request for the transposition
+            Ax = (X.'*(diag(pi)*pi)).*x - X.'*(pi.^2.*(X*x));  
+            if optionsolve.correction
+                Ax = Ax + (sum(x)/(n))*e;
+            end
         end
         
         alpha = zeta(1:n, 1);
@@ -139,25 +212,40 @@ function M = multinomialfixedstochasticfactory(pi)
     % Conversion of Euclidean to Riemannian Hessian
     M.ehess2rhess = @ehess2rhess;
     function rhess = ehess2rhess(X, egrad, ehess, eta)
-
-        % computing the directional derivative of the Riemannian
+        
+        % Computing the directional derivative of the Riemannian
         % gradient
         gamma = egrad.*X;
         gammadot = ehess.*X + egrad.*eta;
         
-        b = [sum(gamma, 2) ; gamma'*pi];
-        bdot = [sum(gammadot, 2) ; gammadot'*pi];
+        bdot = [ gammadot*e ; gammadot.'*pi];
+        b = [gamma*e ; gamma.'*pi];
+        
         [alpha, beta] = mylinearsolve(X, b);
-        [alphadot, betadot] = mylinearsolve(X, bdot- [eta*beta; eta'*alpha]);
+        S1 = [ zeros(size(eta)) , diag(pi)*eta; eta'*diag(pi) , diag(eta'*diag(pi)*pi) ];
+        %S2 = [eye(size(X)) , diag(pi)*X; X'*diag(pi), diag( X'*diag(pi)*pi )];
+        %[C,R] = qr(sparse([zeros(size(S1)), S2; S2, S1]),[bdot;b]);
+        %LL = chol(S2);
+        %sol = pinv([zeros(size(S1)), S2; S2, S1])*[b;bdot];
+        %sol = lsqr([zeros(size(S1)), S2; S2, S1],[b;bdot],1e-6,100);
+        %alphadot = sol(1:n);
+        %betadot = sol(n+1:2*n);
+        %alpha = sol(2*n+1:3*n);
+        %beta = sol(3*n+1:end);
+       
+        
+        [alphadot, betadot] = mylinearsolve(X, bdot - S1*[alpha; beta]); % %- [eta*beta; eta'*alpha]
         
         S = (alpha*e' + pi*beta');
-        deltadot = gammadot - (alphadot*e' + pi*betadot').*X- S.*eta;
+        deltadot = gammadot - (alphadot*e' + pi*betadot').*X- S.*eta; % rgraddot
 
-        % projecting gamma
-        delta = gamma - S.*X;
+        % Computing Riemannian gradient
+        delta = gamma - S.*X; % rgrad
 
-        % computing and projecting nabla
+        % Riemannian Hessian in the ambient space
         nabla = deltadot - 0.5*(delta.*eta)./X;
+
+        % Riemannian Hessian on the tangent space
         rhess = projection(X, nabla);
     end
 
