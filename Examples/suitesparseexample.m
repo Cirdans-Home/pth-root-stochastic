@@ -32,7 +32,7 @@ e = ones(n,1);
 [pi,~] = eigs(A.',1,'largestabs');
 pi = pi./norm(pi,1);
 
-%% Building variety
+%% Building manifold
 manifold = multinomialfactory(n,n); % These are column stochastic!
 %% Building the problem
 p = 2;
