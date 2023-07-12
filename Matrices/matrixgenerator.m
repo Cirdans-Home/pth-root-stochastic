@@ -71,7 +71,7 @@ for i=1:length(classes)
             case 5
                 % K80 Model (not embeddable). With this choice of
                 % parameters the matrix is always not embeddable
-                b = rand(1);
+                b = 0.5*rand(1);
                 c = (1-2*b)/2;
                 a = 1 -b-2*c;
                 A0 = [a,b;a,b];

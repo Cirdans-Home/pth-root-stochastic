@@ -13,6 +13,7 @@ catch
     here = pwd;
     cd ../manopt
     importmanopt;
+    addpath('auxiliaries/')
     cd(here);
 end
 addpath('../Utilities/'); % code for performance profile plots
@@ -45,8 +46,7 @@ for i=1:length(testmatrices) % Test of all the matrices
     problem.M = M;
     problem.cost = @(x) 0.5*cnormsqfro(mpower(x,p).'-A);
     problem = manoptAD(problem);
-    options.tolcost = 1e-3;
-    %options.tolgradnorm = 1e-3;%tolerances(i);
+    options.tolgradnorm = 1e-3;%tolerances(i);
     options.verbosity = 0;
     [X1, xcost, info, options] = trustregions(problem,X0,options);
     residual(1,i) = norm(mpower(X1.',p)-A,"fro");
@@ -57,8 +57,7 @@ for i=1:length(testmatrices) % Test of all the matrices
     problem.M = M;
     problem.cost = @(x) 0.5*cnormsqfro(mpower(x,p).'-A);
     problem = manoptAD(problem);
-    options.tolcost = 1e-3;
-    %options.tolgradnorm = 1e-3;%tolerances(i);
+    options.tolgradnorm = 1e-3;%tolerances(i);
     options.verbosity = 0;
     options.strategy = 'alternate';
     [X3, xcost3, info, options] = rlbfgs(problem,X0,options);
@@ -91,3 +90,18 @@ perfprof(residual.');
 legend({'Riemannian trust-region','Riemannian LBFGS', ...
     'Interior point method'},'Location','southeast')
 title('Residual')
+%% Save figures to file
+% If matlab2tikz is available produces tikz figures, otherwise it exports
+% them as eps, see:
+% https://github.com/matlab2tikz/matlab2tikz
+try
+    figure(1)
+    matlab2tikz row-stochastic-time.tikz
+    figure(2)
+    matlab2tikz row-stochastic-residual.tikz
+catch
+    figure(1);
+    savefig(gcf,'row-stochastic-time','epsc')
+    figure(2)
+    savefig(gcf,'row-stochastic-residual','epsc')
+end
