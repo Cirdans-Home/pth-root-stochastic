@@ -5,8 +5,10 @@ function options = initoptions()
 %to store the relevant quantities for convergence analysis purposes.
 
 options.formulation = "block"; % schur
-options.method = "svd";        % cg lsqr svd 
-options.correction = false;    % Do rank 1 update?
+options.method = "direct";     % cg pcg1 pcg2 lsqr direct 
+options.threshold = 1e-2;      % Threshold for both MIC and dropping in the 
+                               % Neumann series preconditioner
+options.kappa = 3;             % Number of terms in the Neumann series
 options.verbose = false;       % Prints info on linear system solution
 options.plot = false;          % Plot convergence of lineas system solver
 options.fighandle = [];        % New-handle o reuse?

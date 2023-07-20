@@ -13,10 +13,11 @@ catch
 end
 
 %% We start from the Markov function we are interested in
+rng(3);
 a = 1/6;
 A = 1/3*[1-2*a 1+a 1+a
    1+a 1-2*a 1+a
-   (1+a)/3 (1+a) 3-(1+a)-(1+a)/3];
+   1+a 1+a 1-2*a];
 n = size(A,1);
 p = 2;
 e = ones(n,1);

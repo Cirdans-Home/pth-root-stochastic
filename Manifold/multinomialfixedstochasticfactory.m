@@ -55,13 +55,18 @@ end
                         [zeta, flag, res, iter,resvec] = ...
                             pcg(@(x) mycompute(x,true), b, 1e-6, 2*n,...
                             [],[],b);
+                    case "PCG"
+                        [zeta, flag, res, iter,resvec] = ...
+                            pcg(@(x) mycompute(x,true), b, 1e-6, 2*n,...
+                            @(x) myprec(x,true),[],b);
                     case "LSQR"
                         [zeta, flag, res, iter,resvec] = ...
                             lsqr(@mycompute, b, 1e-6, 2*n);
-                    case "SVD"
+                    case "DIRECT"
                         S1 = [eye(size(X)) diag(pi)*X;
                             X.'*diag(pi) diag(X.'*(diag(pi)*pi))];
-                        zeta = pinv(S1)*b;
+                        S1 = S1 + (1/(pi'*pi + n))*[pi;-e]*[pi',e'];
+                        zeta = S1\b;
                         flag = 0;
                         iter = 0;
                         res = norm(S1*zeta-b,2)/norm(b,2);
@@ -76,13 +81,32 @@ end
                         [zetaschur, flag, res, iter,resvec] = ...
                             pcg(@(x) mycompute_schur(x,true), bschur, ...
                             1e-6, 2*n, [], [], bschur);
+                    case "PCG"
+                        L = ichol(sparse(diag(X.'*(diag(pi)*pi)) - X.'*(pi.^2.*(X))), ...
+                            struct('type','ict', ...
+                            'droptol',optionsolve.threshold, ...
+                            'michol','on', ...
+                            'diagcomp',min(pi)));
+                        [zetaschur, flag, res, iter,resvec] = ...
+                            pcg(@(x) mycompute_schur(x,true), bschur, ...
+                            1e-6, 2*n, L, L', bschur);
+                    case "PCG2"
+                        Donehalf = spdiags(1./sqrt((X.'*(diag(pi)*pi))),0,n,n);
+                        P = (Donehalf*X')*spdiags(pi.^2,0,n,n)*(X*Donehalf);
+                        P(abs(P) < optionsolve.threshold) = 0;
+                        P = sparse(P);
+                        PrecNeu = @(x) neumannseries(P,x,optionsolve.kappa);
+                        [zetaschur, flag, res, iter,resvec] = ...
+                            pcg(@(x) mycompute_schur2(x,Donehalf,true), Donehalf*bschur, ...
+                            1e-6, 2*n, PrecNeu, [], Donehalf*bschur);
+                        zetaschur = diag(1./sqrt((X.'*(diag(pi)*pi))))*zetaschur;
                     case "LSQR"
                         [zetaschur, flag, res, iter,resvec] = ...
                             lsqr(@mycompute_schur, bschur, ...
                             1e-6, 2*n);
-                    case "SVD"
-                        S1schur = diag(X.'*(diag(pi)*pi)) - X.'*diag(pi.^2)*X;
-                        zetaschur = pinv(S1schur)*bschur;
+                    case "DIRECT"
+                        S1schur = diag(X.'*(diag(pi)*pi)) - X.'*diag(pi.^2)*X + 0.005*ones(n,n)/n;
+                        zetaschur = S1schur\bschur;
                         flag = 0;
                         iter = 0;
                         res = norm(S1schur*zetaschur-bschur,2)/norm(bschur,2);
@@ -120,18 +144,15 @@ end
                     figure(optionsolve.fighandle);
                     hold on
                 end
-                if optionsolve.correction
-                    correctionstring = '+ rank 1';
-                else
-                    correctionstring = '';
-                end
-                semilogy(1:length(resvec),resvec,'LineWidth',2,'DisplayName',...
-                    sprintf('%s-%s %s',optionsolve.method, ...
-                    optionsolve.formulation,correctionstring))
+                semilogy(1:length(resvec),resvec./resvec(1), ...
+                    'LineWidth',2,'DisplayName',...
+                    sprintf('%s-%s',optionsolve.method, ...
+                    optionsolve.formulation))
                 hold off
             end
         end
 
+        %% Matrix-Vector products
 
         function Ax = mycompute(x,flag)
             % The matrix is symmetric, thus the flag is an empty
@@ -141,20 +162,44 @@ end
             Axtop = xtop + diag(pi)*X*xbottom;
             Axbottom = X'*diag(pi)*xtop + diag(pi'*diag(pi)*X)*xbottom;
             Ax = [Axtop; Axbottom];
-            if optionsolve.correction
-                Ax = Ax + ((pi'*xtop - e'*xbottom)/(pi'*pi + n))*[pi;-e];
-            end
         end
 
         function Ax = mycompute_schur(x,flag)
             % The matrix is symmetric, thus the flag is an empty
             % placeholder for the LSQR request for the transposition
             Ax = (X.'*(diag(pi)*pi)).*x - X.'*(pi.^2.*(X*x));
-            if optionsolve.correction
-                Ax = Ax + (sum(x)/(n))*e;
-            end
         end
 
+        function Ax = mycompute_schur2(x,D,flag)
+            % The matrix is symmetric, thus the flag is an empty
+            % placeholder for the LSQR request for the transposition
+            y = D*x;
+            Ax = x - D*(X.'*(pi.^2.*(X*y)));
+        end
+
+        %% Preconditioners
+
+        function Ax = myprec(x,flag)
+            % The matrix is symmetric, thus the flag is an empty
+            % placeholder for the LSQR request for the transposition
+            xtop = x(1:n,1);
+            xbottom = x(n+1:end,1);
+            Axtop = xtop;
+            Axbottom = diag(X'*diag(pi)*pi)\xbottom;
+            Ax = [Axtop; Axbottom];
+        end
+
+        function y = neumannseries(P,x,k)
+            % Applies k terms of the Neumann series to x
+            y = x;
+            if k <= 0
+                return
+            else
+                for j =1:k
+                    y = y + P*x;
+                end
+            end
+        end
         alpha = zeta(1:n, 1);
         beta = zeta(n+1:end, 1);
     end
