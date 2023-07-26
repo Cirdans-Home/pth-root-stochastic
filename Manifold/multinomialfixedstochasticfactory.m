@@ -292,17 +292,6 @@ M.ehess2rhess = @ehess2rhess;
 
         [alpha, beta] = mylinearsolve(X, b);
         S1 = [ zeros(size(eta)) , diag(pi)*eta; eta'*diag(pi) , diag(eta'*diag(pi)*pi) ];
-        %S2 = [eye(size(X)) , diag(pi)*X; X'*diag(pi), diag( X'*diag(pi)*pi )];
-        %[C,R] = qr(sparse([zeros(size(S1)), S2; S2, S1]),[bdot;b]);
-        %LL = chol(S2);
-        %sol = pinv([zeros(size(S1)), S2; S2, S1])*[b;bdot];
-        %sol = lsqr([zeros(size(S1)), S2; S2, S1],[b;bdot],1e-6,100);
-        %alphadot = sol(1:n);
-        %betadot = sol(n+1:2*n);
-        %alpha = sol(2*n+1:3*n);
-        %beta = sol(3*n+1:end);
-
-
         [alphadot, betadot] = mylinearsolve(X, bdot - S1*[alpha; beta]); % %- [eta*beta; eta'*alpha]
 
         S = (alpha*e' + pi*beta');
