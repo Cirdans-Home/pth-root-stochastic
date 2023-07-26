@@ -1,6 +1,6 @@
-# A Riemannian Approach to approximately embed Markov Chains
+# Stochastic pth root approximation of a stochastic matrix: A Riemannian optimization approach
 
-Algorithms for the approximation of an embedding for Markov chains.
+Algorithms for approximating a stochastic pth root of a stochastic matrix using Riemannian optimization. 
 
 ## Manopt
 
