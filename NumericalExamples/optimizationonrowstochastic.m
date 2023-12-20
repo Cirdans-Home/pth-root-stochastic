@@ -66,7 +66,7 @@ for i=1:length(testmatrices) % Test of all the matrices
     iter(2,i) = length([info.iter]);
     clear problem M
     % Constrained optimization algorithm
-    [X2,output,history] = approximatepower(A,p,X0,1e-3,1000); % tolerances(i)
+    [X2,output,history] = approximatepower(A,p,X0,1e-3,1000,'ANALYTICAL'); 
     residual(3,i) = norm(mpower(X2,p)-A,"fro");
     time(3,i) = output.time;
     iter(3,i) = output.funcCount;
